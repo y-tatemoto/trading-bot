@@ -11,7 +11,8 @@ This repository is for me to study typescript and javascript, So running this BO
 参考させて頂いたリポジトリ・記事
 ### github
 [ryoctrl/BitFlyerAutoTrader](https://github.com/ryoctrl/BitFlyerAutoTrader)
-ほとんどこちらのリポジトリのコピーになってしまいました。
+
+ほとんどこちらのリポジトリの劣化コピーになってしまいました。
 ryoctrl様には心より感謝いたします。
 
 ### article
