@@ -1,5 +1,8 @@
-function hello(name: string): string {
-    return `Hello, ${name}!`;
-}
+import turtle from './trader/turtle'
 
-console.log(hello(String("World".length)));
+function main() {
+    //タートル手法BOT開始
+    const trtl = new turtle()
+    trtl.init()
+}
+main()

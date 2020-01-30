@@ -70,4 +70,6 @@ typings/
 .next
 
 # project
-/dist
+dist/
+node_modules/
+log/
