@@ -10,18 +10,24 @@ export default {
         pair: 'BTC_JPY',
     },
     trade: {
+        // turtle: {
+        //     lot: 0.01,
+        //     candleSize: 30, //分足
+        //     entry: 30, //エントリー判定に使う足期間
+        //     close: 7, //クローズ判定に使う足期間
+        // },
         turtle: {
             lot: 0.1,
-            candleSize: 30, //分足
+            candleSize: 240, //分足
             entry: 30, //エントリー判定に使う足期間
             close: 7, //クローズ判定に使う足期間
         },
-        /*turtle: {
-            lot: 0.001,
-            candleSize: 1, //分足
-            entry: 5, //エントリー判定に使う足期間
-            close: 3, //クローズ判定に使う足期間
-        },*/
+        trap: {
+            lot: 0.1,
+            basePrice: 1000000,
+            openRangePrice: 30000,
+            closeRangePrice: 15000,
+        },
     },
     log4js: {
         appenders: {

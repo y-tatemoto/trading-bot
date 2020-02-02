@@ -1,37 +1,35 @@
-import cryptoWatch from '../api/cryptoWatch'
-import strategy from './strategy'
-import config from '../config'
-import sleep from '../utils/sleep'
-import logger from '../utils/logger'
+import cryptoWatch from '../../api/cryptoWatch'
+import strategy from '../../trader/strategy'
+import config from '../../config'
+import logger from '../../utils/logger'
 import transaction from './transaction'
 logger.init()
 
 /**
- * タートル手法BOT
- * 取引所はbitflyer
- * @name turtle
+ * ChanelBreakoutのバックテスト
+ * @name chanelBreakout
  * @constructor
  */
-export default class turtle {
+export default class chanelBreakout {
     private cwApi: any
     private strtgy: any
     private position: number //0: ノーポジ, 1: ロング, 2: ショート
     private lot: number //取引するロット数
     private candleSize: number //ローソク足(分)
-    private interval: number //取引情報の更新間隔(分)
     private entryMonitoringPeriod: number //エントリー判定に使う足期間
     private closeMonitoringPeriod: number //クローズ判定に使う足期間
     private ohlc: any
+    private allOhlc: any
 
     constructor() {
         this.position = 0
         this.lot = config.trade.turtle.lot
         this.candleSize = config.trade.turtle.candleSize
-        this.interval = 1
         this.entryMonitoringPeriod = config.trade.turtle.entry
         this.closeMonitoringPeriod = config.trade.turtle.close
         this.strtgy = new strategy()
         this.cwApi = new cryptoWatch()
+        this.ohlc = []
     }
 
     /**
@@ -40,7 +38,7 @@ export default class turtle {
      * @return {void}
      */
     public init(): void {
-        this.trade()
+        this.testing()
     }
 
     /**
@@ -49,12 +47,15 @@ export default class turtle {
      * @trade
      * @return {Promise<boolean>}
      */
-    private async trade(): Promise<boolean> {
+    private async testing(): Promise<boolean> {
+        this.allOhlc = await this.cwApi.getOhlc(this.candleSize * 99999, this.candleSize)
+        for (let index = 0; index < 8; index++) {
+            this.update()
+        }
         let transactions = []
         try {
             // eslint-disable-next-line no-constant-condition
-            while (true) {
-                await this.update()
+            while (this.update()) {
                 let t
 
                 switch (this.getNextAction(this.position)) {
@@ -67,15 +68,16 @@ export default class turtle {
                         break
                     case 'BUY':
                         logger.LogSystemInfo('【trade】シグナル点灯: BUY')
+
                         t = new transaction('BUY', this.lot)
-                        await t.open()
+                        t.open(this.ohlc[this.ohlc.length - 1][1])
                         transactions.push(t)
                         this.position = 1
                         break
                     case 'SELL':
                         logger.LogSystemInfo('【trade】シグナル点灯: SELL')
                         t = new transaction('SELL', this.lot)
-                        await t.open()
+                        t.open(this.ohlc[this.ohlc.length - 1][1])
                         transactions.push(t)
                         this.position = 2
 
@@ -84,24 +86,23 @@ export default class turtle {
                         logger.LogSystemInfo('【trade】シグナル点灯: EXIT')
                         for (const item of transactions) {
                             if (item.status === 'HOLD') {
-                                item.close()
+                                item.close(this.ohlc[this.ohlc.length - 1][1])
                                 this.position = 0
-                                let profit = await item.getProfit()
-                                if (profit != false) {
-                                    logger.LogSystemInfo(`【クローズ】損益：${profit}円`)
-                                }
                             }
                         }
                         break
                 }
-                for (const item of transactions) {
-                    let profit = await item.getProfit()
-                    if (profit != false) {
-                        logger.LogSystemInfo(`【損益】${profit}円`)
-                    }
-                }
-                await sleep.minutes(this.interval)
             }
+
+            let total = 0
+            for (const item of transactions) {
+                let profit = item.getProfit()
+                total += profit as number
+                if (profit != false) {
+                    logger.LogSystemInfo(`【損益】${profit}円`)
+                }
+            }
+            logger.LogSystemInfo(`【最終損益】${total}円`)
         } catch (err) {
             logger.LogSystemError(`【${this.constructor.name}】trade関数にエラーが発生しました。`)
             logger.LogSystemError(err)
@@ -110,14 +111,14 @@ export default class turtle {
     }
 
     /**
-     * OHLCデータ取得し情報を更新する
+     * OHLCデータを更新する
      * @update
      * @return {void}
      */
-    private async update(): Promise<any> {
-        logger.LogSystemInfo('OHLCデータ取得')
-        this.ohlc = await this.cwApi.getOhlc(this.candleSize * 100, this.candleSize) //とりあえず100本取る
-        logger.LogSystemInfo(`OHLCデータ取得完了 データ数:${this.ohlc.length}`)
+    private update(): boolean {
+        if (this.allOhlc.length === 0) return false
+        this.ohlc.push(this.allOhlc.shift())
+        return true
     }
 
     /**

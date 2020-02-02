@@ -1,4 +1,4 @@
-import chanelBreakout from './chanelBreakout'
+import chanelBreakout from './chanelBreakout/chanelBreakout'
 
 function main() {
     //バックテスト開始

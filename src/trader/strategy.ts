@@ -10,7 +10,7 @@ export default class Strategy {
      * - チャネルブレイクアウト戦略
      * 期間{term}内のローソク足{candles}の最高値(最安値)と
      * 最新確定済みのローソク足を比較し最高値(最安値)を超えてたら'BUY<1>'('SELL<2>')を返し
-     * 超えてなければ'HOLD'<1>を返す
+     * 超えてなければ'HOLD'<0>を返す
      * @param term {number} 期間
      * @param candles {any} ローソク足データ
      * [
@@ -41,8 +41,16 @@ export default class Strategy {
     }
 
     //トラップリピートイフダン(買い専)
-    public trapRepeatIfdone(): Boolean {
-        console.log('トラップリピートイフダン(買い専)')
-        return true
+    public trapRepeatIfdone(
+        basePrice: number,
+        openRangePrice: number,
+        closeRangePrice: number,
+        side: string = 'BUY',
+    ): any {
+        if (side === 'BUY') {
+            openRangePrice *= -1
+            closeRangePrice *= -1
+        }
+        return { buy: basePrice + openRangePrice, sell: basePrice + closeRangePrice }
     }
 }

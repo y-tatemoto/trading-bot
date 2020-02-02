@@ -1,5 +1,5 @@
-import config from '../config'
-import logger from '../utils/logger'
+import config from '../../config'
+import logger from '../../utils/logger'
 
 /**
  * 売買を管理するクラス
@@ -76,8 +76,6 @@ export default class transaction {
             return
         }
 
-        console.log('kuro-zu')
-
         this.order(this.counterType, this.lot, price)
     }
 
@@ -92,9 +90,6 @@ export default class transaction {
         if (this.status != 'CLOSE') {
             return false
         }
-
-        console.log(this.type)
-        console.log(this.data)
 
         let openPrice = 0
         let closePrice = 0

@@ -1,7 +1,7 @@
-import bitflyer from '../api/bitflyer'
-import config from '../config'
-import logger from '../utils/logger'
-import sleep from '../utils/sleep'
+import bitflyer from '../../api/bitflyer'
+import config from '../../config'
+import logger from '../../utils/logger'
+import sleep from '../../utils/sleep'
 
 /**
  * 売買を管理するクラス
@@ -44,7 +44,7 @@ export default class transaction {
      * @return {Promise<boolean>}
      */
     private async order(type: string, lot: number = this.lot): Promise<boolean> {
-        const status = this.status
+        let status = this.status
         this.status = 'COMFIRM'
         const canOrder = await this.canOrder()
         if (!canOrder) {
@@ -79,12 +79,12 @@ export default class transaction {
         const orderId = result.child_order_acceptance_id
 
         //!!!! ここで約定したかどうか確認、1分以内に約定してなければ注文を繰り返す !!!!//
-        sleep.minutes(1).then(async () => {
-            const exec = await this.getExecution(orderId)
+        sleep.minutes(1.1).then(async () => {
+            let exec = await this.getExecution(orderId)
             if (exec) {
                 this.orderIds.push(orderId)
                 if (status === 'INIT') this.status = 'HOLD'
-                if (status === 'HOLD') this.status = 'CLOSE'
+                else if (status === 'HOLD') this.status = 'CLOSE'
             } else {
                 this.status = status
                 this.order(type, lot)
@@ -168,10 +168,10 @@ export default class transaction {
                 logger.LogAccessError(`【${this.constructor.name}】約定情報が取得できませんでした`)
                 return false
             }
-            if (result.side === this.type) openPrice = result.price
-            if (result.side === this.counterType) closePrice = result.price
+            if (result.side === this.type) openPrice = result.price * this.lot
+            if (result.side === this.counterType) closePrice = result.price * this.lot
         }
-        return openPrice - closePrice
+        return this.type === 'BUY' ? closePrice - openPrice : openPrice - closePrice
     }
 
     /**
@@ -185,7 +185,7 @@ export default class transaction {
         let result = await this.bfApi.getExecution(this.pair, id)
         if (!result) return false
         if (!result.length) return false
-        console.log(result)
+
         return result[0]
     }
 

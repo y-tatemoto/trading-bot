@@ -44,6 +44,17 @@ export default class BitFlyer {
     }
 
     /**
+     * 新規注文を出す
+     * @cancelChildorder
+     * @return {Promise<any>}
+     */
+    public async cancelChildorder(body: any): Promise<any> {
+        let method = 'POST'
+        let path = '/v1/me/cancelchildorder'
+        return await this.sendRequest(method, path, body)
+    }
+
+    /**
      * 指定したIDの約定情報を取得
      * @getExecution
      * @param {string} pair //BTC_JPY
