@@ -4,6 +4,8 @@ import strategy from '../strategy'
 import transaction from './transaction'
 import logger from '../../utils/logger'
 import config from '../../config'
+import sleep from '../../utils/sleep'
+import { INIT, ORDERED, HOLD, CLOSED } from '../../const'
 logger.init()
 /**
  * トラップリピートイフダン
@@ -15,21 +17,23 @@ export default class trap {
     private strtgy: any
     private bfApi: any
     private cwApi: any
-    private basePrice: number
-    private price: number | undefined
-    private openRangePrice: number
-    private closeRangePrice: number
-    private pair: string
-    private lot: number
+    private deals: any
 
     constructor() {
         this.strtgy = new strategy()
         this.cwApi = new cryptoWatch()
-        this.pair = config.bitflyer.pair
-        this.lot = config.trade.trap.lot
-        this.basePrice = config.trade.trap.basePrice
-        this.openRangePrice = config.trade.trap.openRangePrice
-        this.closeRangePrice = config.trade.trap.closeRangePrice
+        this.deals = []
+        for (let i = 0; i < config.trade.trap.quantity; i++) {
+            let basePrice = config.trade.trap.basePrice - config.trade.trap.openRangePrice * i
+            let openRangePrice = config.trade.trap.openRangePrice
+            let closeRangePrice = config.trade.trap.closeRangePrice
+            let lot = config.trade.trap.lot
+            this.deals.push({
+                id: i,
+                transaction: new transaction(basePrice, openRangePrice, closeRangePrice, lot),
+            })
+        }
+
         const _apiKey = config.bitflyer.apiKey != undefined ? config.bitflyer.apiKey : ''
         const _secret = config.bitflyer.apiSecret != undefined ? config.bitflyer.apiSecret : ''
         this.bfApi = new bitflyer(_apiKey, _secret)
@@ -50,31 +54,45 @@ export default class trap {
      * @return {Promise<void>}
      */
     private async trade(): Promise<void> {
-        this.price = await this.getPrice()
-        this.basePrice = this.basePrice < this.price ? this.basePrice : this.price
-        const instruct = this.strtgy.trapRepeatIfdone(this.basePrice, this.openRangePrice, this.closeRangePrice)
-        let t = new transaction(instruct.buy, instruct.sell, this.lot)
-        t.open()
-        let openTransactions = [t]
-        let closeTransactions = []
-
         try {
             // eslint-disable-next-line no-constant-condition
             while (true) {
-                this.price = await this.getPrice()
-                closeTransactions = openTransactions.filter(item => {
-                    return item.isClose()
-                })
-                openTransactions = openTransactions.filter(async item => {
-                    if ((this.price as number) > item.openPrice + this.openRangePrice * 2 && item.isOrdered()) {
-                        return !(await item.cancel())
-                    } else {
-                        return true
+                for (let i = 0; i < this.deals.length; i++) {
+                    const trsct = this.deals[i].transaction
+                    const prev = this.deals.find((item: any) => {
+                        return item.id === i - 1
+                    })
+
+                    if (trsct.status === INIT) {
+                        if (prev) {
+                            if (prev.transaction.status === HOLD) {
+                                trsct.open()
+                            }
+                        } else {
+                            trsct.open()
+                        }
                     }
-                })
-                for (const item of openTransactions) {
+                    if (trsct.status === ORDERED) {
+                        if (prev) {
+                            if (prev.transaction.status === CLOSED) {
+                                trsct.cancel()
+                            }
+                        }
+                    }
+                    if (trsct.status === CLOSED) {
+                        if (prev) {
+                            if (prev.transaction.status === HOLD) {
+                                trsct.open()
+                            }
+                        } else {
+                            trsct.open()
+                        }
+                    }
                 }
+                await sleep.minutes(0.3)
             }
+
+
         } catch (err) {
             logger.LogSystemError(`【${this.constructor.name}】trade関数にエラーが発生しました。`)
             logger.LogSystemError(err)
@@ -86,12 +104,12 @@ export default class trap {
      * @update
      * @return {number}
      */
-    private async getPrice(): Promise<number> {
+    private async getPrice(pair: string): Promise<number> {
         logger.LogSystemInfo('価格取得')
-        const tick = await this.bfApi.getTicker(this.pair)
+        const tick = await this.bfApi.getTicker(pair)
         if (!tick) {
-            logger.LogAccessError(`【${this.constructor.name}】取引情報が取得出来ず注文が中断されました`)
-            return this.price as number
+            logger.LogAccessError(`【${this.constructor.name}】価格情報が取得出来ませんでした`)
+            throw '価格情報が取得出来ませんでした'
         }
         logger.LogSystemInfo(`価格取得完了 価格:${tick.best_bid}`)
 

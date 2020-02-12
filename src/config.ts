@@ -23,10 +23,11 @@ export default {
             close: 7, //クローズ判定に使う足期間
         },
         trap: {
-            lot: 0.1,
-            basePrice: 1000000,
-            openRangePrice: 30000,
-            closeRangePrice: 15000,
+            lot: 0.001,
+            quantity: 5,
+            basePrice: 1138316,
+            openRangePrice: 400,
+            closeRangePrice: 200,
         },
     },
     log4js: {

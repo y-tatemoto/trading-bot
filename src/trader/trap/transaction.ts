@@ -10,9 +10,10 @@ logger.init()
  * @constructor
  */
 export default class Transaction {
-    public openPrice: number
-    public closePrice: number
-    private pair: string //'BTC_JPY'
+    public basePrice: number
+    public openRangePrice: number
+    public closeRangePrice: number
+    public pair: string //'BTC_JPY'
     private lot: number
     private type: string
     private counterType: string
@@ -20,14 +21,16 @@ export default class Transaction {
     private bfApi: any
     public status: string //'INIT' 初期状態, 'ORDERED' 処理中, 'HOLD' ポジション保持中, 'CLOSED' 決済済み
 
-    constructor(openPrice: number, closePrice: number, lot: number, type: string = 'BUY') {
-        this.openPrice = openPrice
-        this.closePrice = closePrice
+    constructor(basePrice: number, openRangePrice: number, closeRangePrice: number, lot: number, type: string = 'BUY') {
+        this.basePrice = basePrice
+        this.openRangePrice = openRangePrice
+        this.closeRangePrice = closeRangePrice
         this.lot = lot
         this.type = type
         this.counterType = this.type === 'BUY' ? 'SELL' : 'BUY'
         this.status = 'INIT'
         this.pair = config.bitflyer.pair
+        this.orderIds = []
 
         const _apiKey = config.bitflyer.apiKey != undefined ? config.bitflyer.apiKey : ''
         const _secret = config.bitflyer.apiSecret != undefined ? config.bitflyer.apiSecret : ''
@@ -78,13 +81,13 @@ export default class Transaction {
      * @return {Promise<void>}
      */
     public async open(): Promise<void> {
-        if (this.status != 'INIT') {
+        if (this.status != 'INIT' && this.status != 'CLOSE') {
             logger.LogSystemError(`【${this.constructor.name}】${this.status}状態で取引開始しようとしています。`)
             return
         }
 
         try {
-            while (!(await this.order(this.type, this.openPrice, this.lot))) await sleep.minutes(1)
+            while (!(await this.order(this.type, this.getOpenPrice(), this.lot))) await sleep.minutes(1)
         } catch (err) {
             logger.LogSystemError(`【${this.constructor.name}】取引開始時にエラーが発生しました。`)
             logger.LogSystemError(err)
@@ -109,13 +112,11 @@ export default class Transaction {
         }
 
         try {
-            while (!(await this.order(this.counterType, this.closePrice, this.lot))) await sleep.minutes(1)
+            while (!(await this.order(this.counterType, this.getClosePrice(), this.lot))) await sleep.minutes(1)
         } catch (err) {
             logger.LogSystemError(`【${this.constructor.name}】取引クローズ注文時にエラーが発生しました。`)
             logger.LogSystemError(err)
         }
-
-        this.status = 'ORDERED'
     }
 
     /**
@@ -145,7 +146,6 @@ export default class Transaction {
         let result = await this.bfApi.getExecution(this.pair, id)
         if (!result) return false
         if (!result.length) return false
-        console.log(result)
         return result[0]
     }
 
@@ -155,15 +155,18 @@ export default class Transaction {
      * @return {Promise<void>}
      */
     private async watchExecution(id: string): Promise<void> {
-        let exec
-        while (!(exec = await this.getExecution(id))) {
-            if (exec.length) {
+        let hasExecution = false
+        while (!hasExecution) {
+            if (await this.getExecution(id)) {
+                hasExecution = true
                 if (this.status === 'ORDERED') {
                     this.status = 'HOLD'
                     this.close()
                 } else if (this.status === 'HOLD') {
                     this.status = 'CLOSE'
                 }
+            } else {
+                logger.LogSystemInfo('約定情報はありません。')
             }
             await sleep.minutes(1)
         }
@@ -207,5 +210,23 @@ export default class Transaction {
             }
         }
         return true
+    }
+
+    /**
+     * - オープンプライス
+     * @cancel
+     * @return {number}
+     */
+    public getOpenPrice(): number {
+        return this.basePrice - this.openRangePrice
+    }
+
+    /**
+     * - クローズプライス
+     * @cancel
+     * @return {number}
+     */
+    public getClosePrice(): number {
+        return this.basePrice - this.closeRangePrice
     }
 }
