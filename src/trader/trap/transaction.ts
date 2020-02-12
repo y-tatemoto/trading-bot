@@ -2,6 +2,7 @@ import bitflyer from '../../api/bitflyer'
 import logger from '../../utils/logger'
 import config from '../../config'
 import sleep from '../../utils/sleep'
+import { INIT, ORDERED, HOLD, CLOSED } from '../../const'
 logger.init()
 /**
  * トラップリピートイフダン
@@ -19,7 +20,7 @@ export default class Transaction {
     private counterType: string
     private orderIds: any
     private bfApi: any
-    public status: string //'INIT' 初期状態, 'ORDERED' 処理中, 'HOLD' ポジション保持中, 'CLOSED' 決済済み
+    public status: string //INIT 初期状態, ORDERED 処理中, HOLD ポジション保持中, CLOSED 決済済み
 
     constructor(basePrice: number, openRangePrice: number, closeRangePrice: number, lot: number, type: string = 'BUY') {
         this.basePrice = basePrice
@@ -28,7 +29,7 @@ export default class Transaction {
         this.lot = lot
         this.type = type
         this.counterType = this.type === 'BUY' ? 'SELL' : 'BUY'
-        this.status = 'INIT'
+        this.status = INIT
         this.pair = config.bitflyer.pair
         this.orderIds = []
 
@@ -81,7 +82,7 @@ export default class Transaction {
      * @return {Promise<void>}
      */
     public async open(): Promise<void> {
-        if (this.status != 'INIT' && this.status != 'CLOSE') {
+        if (this.status != INIT && this.status != CLOSED) {
             logger.LogSystemError(`【${this.constructor.name}】${this.status}状態で取引開始しようとしています。`)
             return
         }
@@ -93,7 +94,7 @@ export default class Transaction {
             logger.LogSystemError(err)
         }
 
-        this.status = 'ORDERED'
+        this.status = ORDERED
     }
 
     /**
@@ -104,7 +105,7 @@ export default class Transaction {
      * @return {Promise<void>}
      */
     public async close(): Promise<void> {
-        if (this.status != 'HOLD') {
+        if (this.status != HOLD) {
             logger.LogSystemError(
                 `【${this.constructor.name}】${this.status}状態で取引クローズ注文しようとしています。`,
             )
@@ -159,16 +160,16 @@ export default class Transaction {
         while (!hasExecution) {
             if (await this.getExecution(id)) {
                 hasExecution = true
-                if (this.status === 'ORDERED') {
-                    this.status = 'HOLD'
+                if (this.status === ORDERED) {
+                    this.status = HOLD
                     this.close()
-                } else if (this.status === 'HOLD') {
-                    this.status = 'CLOSE'
+                } else if (this.status === HOLD) {
+                    this.status = CLOSED
                 }
             } else {
                 logger.LogSystemInfo('約定情報はありません。')
             }
-            await sleep.minutes(1)
+            await sleep.minutes(0.3)
         }
     }
 
@@ -178,7 +179,7 @@ export default class Transaction {
      * @return {boolean}
      */
     public isClose(): boolean {
-        return this.status === 'CLOSE'
+        return this.status === CLOSED
     }
 
     /**
@@ -187,7 +188,7 @@ export default class Transaction {
      * @return {boolean}
      */
     public isOrdered(): boolean {
-        return this.status === 'ORDERED'
+        return this.status === ORDERED
     }
 
     /**

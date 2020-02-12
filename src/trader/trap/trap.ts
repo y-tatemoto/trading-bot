@@ -84,11 +84,15 @@ export default class trap {
                             if (prev.transaction.status === HOLD) {
                                 trsct.open()
                             }
+                            if (prev.transaction.status === CLOSED) {
+                                trsct.open()
+                            }
                         } else {
                             trsct.open()
                         }
                     }
                 }
+                console.log(this.deals)
                 await sleep.minutes(0.3)
             }
 
