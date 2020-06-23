@@ -228,6 +228,6 @@ export default class Transaction {
      * @return {number}
      */
     public getClosePrice(): number {
-        return this.basePrice - this.closeRangePrice
+        return this.basePrice - (this.openRangePrice - this.closeRangePrice)
     }
 }

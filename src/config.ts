@@ -17,17 +17,17 @@ export default {
         //     close: 7, //クローズ判定に使う足期間
         // },
         turtle: {
-            lot: 0.1,
+            lot: 0.2,
             candleSize: 240, //分足
             entry: 30, //エントリー判定に使う足期間
             close: 7, //クローズ判定に使う足期間
         },
         trap: {
-            lot: 0.001,
+            lot: 0.05,
             quantity: 5,
-            basePrice: 1138316,
-            openRangePrice: 400,
-            closeRangePrice: 200,
+            basePrice: 1072026,
+            openRangePrice: 10000,
+            closeRangePrice: 8000,
         },
     },
     log4js: {
